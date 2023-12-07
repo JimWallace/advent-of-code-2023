@@ -7,15 +7,15 @@ struct Day05: AdventDay {
     var data: String
 
     var seeds: [Int] = [Int]()
-    var partTwoSeeds: [Int] = [Int]()
+    var partTwoSeeds: [(Int,Int)] = [(Int, Int)]()
+    
     var maps: [map] = [map]()
-
     var pathway: [map] = [map]()
     
     init(data: String) {
         self.data = data
         seeds = [Int]()
-        partTwoSeeds = [Int]()
+        partTwoSeeds = [(Int,Int)]()
         maps = [map]()
         pathway = [map]()
         
@@ -49,11 +49,9 @@ struct Day05: AdventDay {
         }
         
         // Setup partTwoSeeds
-        for (i,seed) in seeds.enumerated() {
+        for (i, _) in seeds.enumerated() {
             if i.isMultiple(of: 2) {
-                for newSeed in seed ... seed + seeds[i+1] {
-                    partTwoSeeds.append(newSeed)
-                }
+                partTwoSeeds.append( (seeds[i], seeds[i+1]) )
             }
         }
         
@@ -88,14 +86,38 @@ struct Day05: AdventDay {
     
     
       func part2() -> Any {
-          print("Locations: \(partTwoSeeds.count)")
+          
           var locations: [Int] = [Int]()
+                    
           for seed in partTwoSeeds {
-              var current = seed
+              
+              // Init with one seed range
+              var current: [(Int,Int)] = [(Int,Int)]()
+              current.append(seed)
+              print("Processing: \(seed))")
+              
               for path in pathway {
-                  current = path.mapSingleValue(current)
+                  
+                  var outputs = [(Int,Int)]()
+                  
+                  // Take each range and push it through each map in the path
+                  while !current.isEmpty {
+                      print("Start loop")
+                      let (start, length) = current.removeFirst()
+                      let x = path.mapRange(start, length)
+                      print("(\(start),\(length)) -> \(x)")
+                      outputs.append(contentsOf: x)
+                  }
+                  
+                  // Move everything along a stage
+                  current = outputs
               }
-              locations.append(current)
+              
+              // Put the minimum value for this seed in our list
+              if let minValue = current.min(by: { $0.0 < $1.0 }) {
+                  locations.append(minValue.0)
+                  print("Minimum value based on the first item: \(minValue.0)")
+              }
           }
                   
           return locations.min()!
@@ -117,8 +139,78 @@ struct map {
         return v
     }
     
-    func overlaps(start: Int, length: Int) -> Bool {
-        return false
+    func mapRange(_ start: Int, _ length: Int) -> [(Int,Int)] {
+        
+        var result: [(Int,Int)] = [(Int,Int)]()
+        var unhandledRanges: [(Int, Int)] = [(start, length)]
+                
+        while !unhandledRanges.isEmpty {
+            
+            print("mapRange: \(unhandledRanges)")
+            
+            // Pop the first one
+            var (unhandledStart, unhandledLength) = unhandledRanges.removeFirst()
+            var handled = false
+            
+            
+            for range in ranges {
+            
+                print("-> Range: \(range)")
+                
+                // Simple case, it's entirely contained in a single range
+                // Increment the whole thing, and return - we're done!
+                if range.contains(unhandledStart, unhandledLength) {
+                    print("Contains> Unhandled: \(unhandledRanges) Result \(result)")
+                    let delta = unhandledStart - range.sourceStart
+                    result.append((range.destinationStart + delta, unhandledLength))
+                    handled = true
+                    if unhandledRanges.isEmpty { return result }
+                }
+                
+                // Difficult case, requires one or more splits
+                // Divide into 2-3 ranges, process each
+                // This is also where we might
+                 else if range.overlaps(unhandledStart, unhandledLength) {
+                    print("Overlaps> Unhandled: \(unhandledRanges) Result \(result)")
+                     
+                    // If we overlap to the right, shorten the length
+                    if unhandledStart + unhandledLength > range.sourceStart + range.rangeLength {
+                        
+                        // Everything past the end needs to get handled
+                        let l = unhandledStart + unhandledLength - (range.sourceStart + range.rangeLength)
+                        unhandledRanges.append((range.sourceStart + range.rangeLength + 1, l))
+                                                
+                        // Reduce the length of unhandles input
+                        unhandledLength = range.sourceStart + range.rangeLength - 1
+                    } // TODO: How do we pick this up in another range in this filter?
+                    
+                    
+                    // If we overlap to the left, move the start point
+                    if unhandledStart < range.sourceStart {
+                        
+                        // Map the part that we can handle for now
+                        unhandledRanges.append((unhandledStart, range.sourceStart - unhandledStart - 1))
+                        
+                        // reduce the length of unhandled input
+                        let delta = range.sourceStart - unhandledStart
+                        unhandledStart += delta
+                        unhandledLength -= delta
+                    }
+                    
+                    // Handle whatever was overlapping
+                    result.append((range.destinationStart,unhandledLength))
+                    
+                 }
+                // If we don't overlap, loop around and see if another range does
+            }
+            
+            // Didn't hit any range, just pass through
+            if handled == false {
+                result.append((unhandledStart, unhandledLength))
+            }
+            
+        }
+        return result
     }
     
 }
@@ -128,4 +220,24 @@ struct SubstituteRange {
     let sourceStart: Int
     let rangeLength: Int
 
+//    func overlaps(_ r: SubstituteRange) -> Bool {
+//        if r.sourceStart + r.rangeLength < sourceStart && r.sourceStart > sourceStart + rangeLength {
+//            return false
+//        }
+//        return true
+//    }
+    
+    func overlaps(_ start: Int, _ length: Int) -> Bool {
+        if start + length < sourceStart && start > sourceStart + rangeLength {
+            return false
+        }
+        return true
+    }
+        
+    func contains(_ start: Int, _ length: Int ) -> Bool {
+        if start > sourceStart && start + length < sourceStart + rangeLength {
+            return true
+        }
+        return false
+    }
 }
