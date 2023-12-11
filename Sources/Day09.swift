@@ -28,7 +28,7 @@ struct Day09: AdventDay {
 
     func extrapolateFirst(_ samples: [Int]) -> Int {
         
-        print("> \(samples)")
+        //print("> \(samples)")
         if samples.allSatisfy({ $0 == 0 }) {
             return 0
         }
@@ -52,10 +52,10 @@ struct Day09: AdventDay {
     func part2() -> Any {
         var nextSample: [Int] = [Int]()
         for sample in samples {
-            print(sample)
+            //print(sample)
             nextSample.append( extrapolateFirst(sample) )
         }
-        print(nextSample)
+        //print(nextSample)
         return nextSample.reduce(0, +)
     }
 }
